@@ -48,7 +48,8 @@ async function run (){
 
         //GET SELECTITEM
         app.get('/selectitem', async(req, res)=> {
-            const query = {};
+            const email = req.query.email;
+            const query = {email:email};
             const cursor = selectItemCollection.find(query);
             const result = await cursor.toArray();
             res.send(result);
@@ -56,14 +57,11 @@ async function run (){
 
         //DELETE SELECT ITEM
         app.delete('/selectitem/:id', async(req, res)=> {
-            const id = req.params.id;
-            const query = {_id:(id)};
+            const _id = req.params.id;
+            const query = {_id};
             const result = await selectItemCollection.deleteOne(query);
             res.send(result);
-            console.log(query, id, result);
         })
-
-
 
     }
     finally{}
@@ -72,7 +70,9 @@ async function run (){
 run().catch(console.dir);
 
 
-
+app.get('/', (req, res)=> {
+    res.send('hello testing');
+})
 
 app.listen(port, ()=> {
     console.log('Listening port', port);
