@@ -1,5 +1,6 @@
 const { MongoClient, ServerApiVersion, ObjectId, ObjectID } = require('mongodb');
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 require('dotenv').config();
 const app = express();
@@ -10,6 +11,24 @@ app.use(cors());
 app.use(express.json());
 
 const port = process.env.PORT || 5000;
+
+
+//VERIFIED JWT
+function verifyJWT (req, res, next){
+    const authHeader = req.headers.authorization;
+
+    if(!authHeader){
+        return res.status(401).send({message: "unauthorized access"})
+    }
+    const token = authHeader.split(' ')[1]; 
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded)=> {
+        if(err){
+            return res.status(403).send({message :'Forbidden access'});
+        }
+        req.decoded = decoded;
+        next();
+    })
+};
 
 
 
@@ -26,11 +45,30 @@ async function run (){
     
         //GET PRODUCT
         app.get('/products', async(req, res)=>{
+
+            const page = parseInt(req.query.page);
+            const size = parseInt(req.query.size);
+
             const query = {};
             const cursor = productCollection.find(query);
-            const products = await cursor.toArray();
+
+            let products;
+            
+            if(page || size){
+                products = await cursor.skip(page*size).limit(size).toArray();
+            }
+            else {
+                products = await cursor.toArray();
+            }
             res.send(products);
         });
+
+        //GET COUNT
+        app.get('/productCount', async(req, res)=> {
+            const count = await productCollection.estimatedDocumentCount();
+            res.send({count});
+        });
+
 
         //POST PRODUCT
         app.post('/product', async(req, res)=> {
@@ -46,13 +84,38 @@ async function run (){
             res.send(result);
         });
 
+        //GET SELECTED COUNT
+        app.get('/selectedCount', async(req, res)=> {
+            const count = await selectItemCollection.estimatedDocumentCount();
+            res.send({count});
+        })
+
         //GET SELECTITEM
-        app.get('/selectitem', async(req, res)=> {
+        app.get('/selectitem', verifyJWT, async(req, res)=> {
+
+            const decodedEmail = req.decoded.email;
             const email = req.query.email;
-            const query = {email:email};
-            const cursor = selectItemCollection.find(query);
-            const result = await cursor.toArray();
-            res.send(result);
+            const page = parseInt(req.query.page);
+            const size = parseInt(req.query.size);
+
+            if(email === decodedEmail){
+
+                const query = {email:email};
+                const cursor = selectItemCollection.find(query);
+
+                let selectedItem;
+
+                if(page || size){
+                        selectedItem = await cursor.skip(page*size).limit(size).toArray();
+                }
+                else{
+                        selectedItem = await cursor.toArray();
+                }
+                res.send(selectedItem);
+            }
+            else{
+                res.status(403).send({message: 'Forbidden access'});
+            }
         });
 
         //DELETE SELECT ITEM
@@ -62,6 +125,17 @@ async function run (){
             const result = await selectItemCollection.deleteOne(query);
             res.send(result);
         })
+
+
+
+        //AUTH
+        app.post('/login', async(req, res)=> {
+            const user = req.body;
+            const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN, {
+                expiresIn: '1d'
+            });
+            res.send({accessToken});
+        });
 
     }
     finally{}
