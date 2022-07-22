@@ -144,8 +144,8 @@ async function run (){
 run().catch(console.dir);
 
 
-app.get('/', (req, res)=> {
-    res.send('hello testing');
+app.get('/test', (req, res)=> {
+    res.send('Testing backend server');
 })
 
 app.listen(port, ()=> {
